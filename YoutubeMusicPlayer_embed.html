@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>YouTube Music Player</title>
+<style>
+  :root{--bg:#0f1115;--panel:#181b22;--panel2:#1f232c;--line:#2b303b;--text:#f1f3f7;--sub:#a3abba;--accent:#ff3d5a;--accent2:#ff6b81}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font:15px/1.5 "Segoe UI","Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  #status{margin:12px 20px 0;padding:10px 14px;border-radius:8px;font-size:13px;display:none;border:1px solid #8a2b3a;background:#2b0f16;color:#ffb3bf}
+  #status.show{display:block}
+  #status code{background:#00000066;padding:1px 6px;border-radius:4px}
+  main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,1fr);gap:20px;padding:20px;max-width:1280px;margin:0 auto}
+  @media(max-width:880px){main{grid-template-columns:1fr;padding:12px}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .player-wrap{position:relative;width:100%;aspect-ratio:16/9;min-height:200px;background:#000;border-radius:10px;overflow:hidden;display:grid;place-items:center}
+  .player-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .player-wrap .ph{color:var(--sub);font-size:13px;text-align:center;padding:12px}
+  .now{margin:14px 2px 4px}
+  .now .label{font-size:11px;color:var(--sub);letter-spacing:.5px}
+  .now .title{font-size:18px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .now .sub{color:var(--sub);font-size:12px;margin-top:2px}
+  .now a{color:var(--accent2)}
+  .opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+  .chk{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;user-select:none}
+  .chk input{accent-color:var(--accent);margin:0}
+  .chk:has(input:checked){border-color:var(--accent);background:#3a1019}
+  .btn{background:var(--accent);border:0;border-radius:8px;padding:0 16px;font-weight:600;color:#fff}
+  .btn:hover{background:var(--accent2)}
+  .btn.ghost{background:var(--panel2);border:1px solid var(--line);font-weight:500;padding:6px 12px;color:var(--text)}
+  .btn.ghost:hover{border-color:#4a5163}
+  .btn.big{padding:8px 18px}
+  .note{color:var(--sub);font-size:12px;margin-top:10px}
+  .add{display:flex;gap:8px}
+  .add textarea{flex:1;min-height:56px;max-height:140px;resize:vertical;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .add textarea:focus,.filter:focus{outline:2px solid #ff3d5a66;border-color:var(--accent)}
+  .help{color:var(--sub);font-size:12px;margin:6px 2px 12px}
+  .qhead{display:flex;align-items:center;gap:8px;margin:4px 0 8px}
+  .qhead h2{font-size:15px;margin:0}
+  .qhead .count{color:var(--sub);font-size:12px}
+  .qhead .sp{flex:1}
+  .filter{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin-bottom:8px}
+  ul#queue{list-style:none;margin:0;padding:0;max-height:min(52vh,520px);overflow:auto}
+  #queue li{display:flex;align-items:center;gap:10px;padding:6px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  #queue li:hover{background:var(--panel2)}
+  #queue li.active{background:#2a1118;border-color:#5a1f2c}
+  #queue li.dragover{border-color:var(--accent)}
+  #queue img,#queue .noimg{width:64px;height:36px;object-fit:cover;border-radius:5px;background:#000;flex:none}
+  #queue .noimg{display:grid;place-items:center;font-size:18px;color:var(--sub)}
+  #queue .meta{min-width:0;flex:1}
+  #queue .n{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #queue .n.untitled{color:var(--sub);font-style:italic}
+  #queue .a{font-size:11px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #queue .x{background:none;border:0;color:var(--sub);font-size:15px;padding:4px 7px;border-radius:6px}
+  #queue .x:hover{color:#fff;background:#ffffff14}
+  .empty{color:var(--sub);text-align:center;padding:28px 8px;font-size:13px}
+  .lists{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .lists select{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#262b36;border:1px solid #3a4050;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;font-size:13px;max-width:90vw;z-index:10}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header><span class="dot"></span><h1>YouTube Music Player</h1></header>
+<div id="status" role="alert"></div>
+
+<main>
+  <section class="card">
+    <div class="player-wrap" id="playerWrap"><div class="ph" id="ph">右の一覧から曲を選ぶと、ここに再生画面が出ます</div></div>
+    <div class="now">
+      <div class="label" id="nowLabel">再生開始した曲</div>
+      <div class="title" id="nowTitle">未選択</div>
+      <div class="sub" id="nowSub"></div>
+    </div>
+    <div class="opts">
+      <button class="btn big" id="bPlayAll">▶ 全曲を再生</button>
+      <label class="chk"><input type="checkbox" id="oCont"> 連続再生</label>
+      <label class="chk"><input type="checkbox" id="oShuffle"> シャッフル</label>
+      <label class="chk"><input type="checkbox" id="oRepeat"> リピート</label>
+    </div>
+    <div class="note">連続再生は、選んだ曲を先頭にキューの残りをYouTubeの埋め込みプレーヤーにまとめて渡す方式です。次へ/前への操作は、プレーヤー内のボタンで行います。オプション変更は次に再生を始めたときから反映されます。</div>
+  </section>
+
+  <section class="card">
+    <div class="add">
+      <textarea id="addInput" rows="2" placeholder="YouTubeのURL（複数可・改行区切り）。URLの後ろに文字を書くとタイトルになります"></textarea>
+      <button class="btn" id="bAdd">追加</button>
+    </div>
+    <div class="help">動画URL・youtu.be・music.youtube.com・動画ID・再生リストURL（list=PL…）に対応。リンクのHTML（&lt;a href…&gt;タイトル&lt;/a&gt;）をそのまま貼ってもOK（タイトルも取り込みます）。Enterで追加、Shift+Enterで改行。</div>
+    <div class="qhead">
+      <h2>キュー</h2><span class="count" id="qCount">0曲</span><span class="sp"></span>
+      <button class="btn ghost" id="bClear">全削除</button>
+    </div>
+    <input class="filter" id="filter" placeholder="キュー内を絞り込み…" type="search">
+    <ul id="queue"></ul>
+    <div class="lists">
+      <select id="listSel" aria-label="保存済みプレイリスト"></select>
+      <button class="btn ghost" id="bLoadList">読み込み</button>
+      <button class="btn ghost" id="bSaveList">現在のキューを保存</button>
+      <button class="btn ghost" id="bDelList">削除</button>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+/* YouTube APIは使用しない。通常の <iframe> 埋め込みのみ。外部への通信は iframe とサムネイル画像だけ。 */
+const HOST = 'https://www.youtube-nocookie.com';
+const $ = s => document.querySelector(s);
+const KEY = { queue:'ytmp.embed.queue', lists:'ytmp.embed.lists', prefs:'ytmp.embed.prefs' };
+const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const ID_RE = /^[\w-]{11}$/;
+const LIST_RE = /^(PL|OLAK5uy_|UU|FL)[\w-]+$/;
+
+/* ---------- 状態 ---------- */
+const prefs = Object.assign({ cont:true, shuffle:false, repeat:false, current:null }, load(KEY.prefs, {}));
+const norm = x => x && (x.kind === 'list' ? LIST_RE.test(x.id) : ID_RE.test(x.id))
+  ? { kind: x.kind === 'list' ? 'list' : 'video', id: x.id, title: String(x.title || '') } : null;
+let queue = load(KEY.queue, null);
+if (!queue) queue = load('ytmp.queue.v1', []);           // 旧版(API版)のキューを引き継ぐ
+queue = queue.map(norm).filter(Boolean);
+let lists = load(KEY.lists, {});
+const keyOf = it => it.kind + ':' + it.id;
+let current = queue.find(x => keyOf(x) === prefs.current) || null;
+
+/* ---------- ユーティリティ ---------- */
+let toastTimer;
+function toast(msg, ms = 3000) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+const saveQueue = () => store(KEY.queue, queue);
+const savePrefs = () => { prefs.current = current ? keyOf(current) : null; store(KEY.prefs, prefs); };
+const thumb = id => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+const watchUrl = it => it.kind === 'list' ? `https://www.youtube.com/playlist?list=${it.id}` : `https://www.youtube.com/watch?v=${it.id}`;
+const label = it => it.title || (it.kind === 'list' ? 'YouTube再生リスト' : '（タイトル未設定）');
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ---------- 入力の解析 ---------- */
+const URL_RE = /https?:\/\/[A-Za-z0-9\-._~:\/?#\[\]@!$&()*+,;=%]+/g;
+function htmlText(s) { try { return (new DOMParser().parseFromString(s, 'text/html').documentElement.textContent || '').trim(); } catch { return s.replace(/<[^>]*>/g, '').trim(); } }
+function parseUrl(raw) {
+  let u; try { u = new URL(raw); } catch { return null; }
+  const host = u.hostname.replace(/^(www\.|m\.|music\.)+/, '');
+  let v = null; const list = u.searchParams.get('list');
+  if (host === 'youtu.be') v = u.pathname.slice(1).split('/')[0];
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    v = u.searchParams.get('v');
+    const m = u.pathname.match(/^\/(?:shorts|embed|live|v)\/([\w-]{11})/);
+    if (!v && m) v = m[1];
+  } else return null;
+  if (v && ID_RE.test(v)) return { kind: 'video', id: v };
+  if (list && LIST_RE.test(list)) return { kind: 'list', id: list };   // Mix(RD…)等は埋め込み不可なので対象外
+  return null;
+}
+function extract(text) {
+  const out = [], bad = [];
+  const push = (e, title) => out.push({ ...e, title: title || '' });
+  // 1) <a href="...">タイトル</a> 形式
+  text = text.replace(/<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, inner) => {
+    const e = parseUrl(href.replace(/&amp;/g, '&')); if (e) push(e, htmlText(inner)); else bad.push(href);
+    return '\n';
+  });
+  // 2) 行ごとに URL（＋後ろの文字をタイトル）/ 動画ID
+  for (const line of text.split(/\r?\n/)) {
+    const l = line.trim(); if (!l) continue;
+    const urls = l.match(URL_RE);
+    if (urls) {
+      const title = urls.length === 1 ? l.replace(urls[0], '').replace(/^[\s\-–—|:：]+|[\s\-–—|:：]+$/g, '') : '';
+      for (const u of urls) { const e = parseUrl(u); if (e) push(e, title); else bad.push(u); }
+    } else if (ID_RE.test(l)) push({ kind: 'video', id: l }, '');
+    else bad.push(l.length > 30 ? l.slice(0, 30) + '…' : l);
+  }
+  return { out, bad };
+}
+
+/* ---------- キュー操作 ---------- */
+function addItems(items) {
+  let added = 0, dup = 0, first = null;
+  for (const e of items) {
+    const ex = queue.find(x => x.kind === e.kind && x.id === e.id);
+    if (ex) { dup++; if (e.title && !ex.title) ex.title = e.title; continue; }
+    const it = { kind: e.kind, id: e.id, title: e.title || '' }; queue.push(it); added++; if (!first) first = it;
+  }
+  saveQueue(); renderQueue();
+  return { added, dup, first };
+}
+function handleAdd(text) {
+  const { out, bad } = extract(text);
+  if (!out.length && !bad.length) return;
+  const r = addItems(out);
+  const parts = [];
+  if (r.added) parts.push(`${r.added}件を追加`);
+  if (r.dup) parts.push(`${r.dup}件は重複`);
+  if (bad.length) parts.push(`解釈できない入力 ${bad.length}件`);
+  toast(parts.join('、'));
+  if (r.first && !current) { current = r.first; savePrefs(); renderNow(); renderQueue(); }
+}
+function removeItem(it) {
+  const i = queue.indexOf(it); if (i < 0) return;
+  queue.splice(i, 1);
+  if (it === current) { current = null; clearPlayer(); renderNow(); }
+  saveQueue(); savePrefs(); renderQueue();
+}
+function renameItem(it) {
+  const t = prompt('タイトル（空欄でクリア）', it.title || ''); if (t === null) return;
+  it.title = t.trim(); saveQueue(); renderQueue(); if (it === current) renderNow();
+}
+
+/* ---------- 再生（<iframe>のsrcを組み立てるだけ） ---------- */
+function srcFor(it) {
+  const base = 'rel=0&playsinline=1&autoplay=1';
+  if (it.kind === 'list') {
+    return `${HOST}/embed?listType=playlist&list=${encodeURIComponent(it.id)}&${base}` + (prefs.repeat ? '&loop=1' : '');
+  }
+  const vids = queue.filter(x => x.kind === 'video');
+  let rest = [];
+  if (prefs.cont) {
+    if (prefs.shuffle) rest = shuffle(vids.filter(x => x !== it));
+    else { const i = vids.indexOf(it); rest = vids.slice(i + 1); if (prefs.repeat) rest = rest.concat(vids.slice(0, i)); }
+  }
+  let ids = rest.map(x => x.id).slice(0, 99);
+  if (prefs.repeat && !ids.length) ids = [it.id];          // loop=1 は playlist 指定が必要（1曲リピート）
+  let u = `${HOST}/embed/${it.id}?${base}`;
+  if (ids.length) u += '&playlist=' + ids.join(',');
+  if (prefs.repeat) u += '&loop=1';
+  return u;
+}
+function clearPlayer() {
+  const w = $('#playerWrap'); w.textContent = '';
+  const ph = document.createElement('div'); ph.className = 'ph'; ph.id = 'ph';
+  ph.textContent = '右の一覧から曲を選ぶと、ここに再生画面が出ます'; w.appendChild(ph);
+}
+function play(it) {
+  if (!it) return;
+  current = it; savePrefs();
+  const w = $('#playerWrap'); w.textContent = '';
+  const f = document.createElement('iframe');
+  f.title = 'YouTube video player';
+  f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+  f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  f.allowFullscreen = true;
+  f.src = srcFor(it);
+  w.appendChild(f);
+  renderNow(); renderQueue();
+}
+function playAll() {
+  const vids = queue.filter(x => x.kind === 'video');
+  const pool = vids.length ? vids : queue;
+  if (!pool.length) return toast('キューが空です');
+  play(prefs.shuffle ? pool[Math.floor(Math.random() * pool.length)] : pool[0]);
+}
+
+/* ---------- 画面 ---------- */
+function renderNow() {
+  $('#nowTitle').textContent = current ? label(current) : '未選択';
+  const sub = $('#nowSub'); sub.textContent = '';
+  if (current) {
+    const a = document.createElement('a'); a.href = watchUrl(current); a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'YouTubeで開く';
+    sub.append(a);
+  }
+  document.title = current && current.title ? `${current.title} - YouTube Music Player` : 'YouTube Music Player';
+}
+let dragItem = null;
+function renderQueue() {
+  const ul = $('#queue'), q = $('#filter').value.trim().toLowerCase();
+  ul.textContent = '';
+  $('#qCount').textContent = queue.length + '曲';
+  if (!queue.length) { const d = document.createElement('li'); d.className = 'empty'; d.style.cursor = 'default'; d.textContent = 'キューは空です'; ul.appendChild(d); return; }
+  queue.forEach(it => {
+    if (q && !((it.title || '') + ' ' + it.id).toLowerCase().includes(q)) return;
+    const li = document.createElement('li');
+    li.draggable = !q; li.className = it === current ? 'active' : '';
+    let img;
+    if (it.kind === 'list') { img = document.createElement('div'); img.className = 'noimg'; img.textContent = '☰'; }
+    else { img = document.createElement('img'); img.loading = 'lazy'; img.alt = ''; img.src = thumb(it.id); }
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const n = document.createElement('div'); n.className = 'n' + (it.title ? '' : ' untitled'); n.textContent = label(it);
+    const a = document.createElement('div'); a.className = 'a'; a.textContent = (it.kind === 'list' ? '再生リスト ' : '') + it.id;
+    meta.append(n, a);
+    const ed = document.createElement('button'); ed.className = 'x'; ed.textContent = '✎'; ed.title = 'タイトルを編集'; ed.setAttribute('aria-label', 'タイトルを編集');
+    ed.onclick = ev => { ev.stopPropagation(); renameItem(it); };
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.title = '削除'; x.setAttribute('aria-label', '削除');
+    x.onclick = ev => { ev.stopPropagation(); removeItem(it); };
+    li.append(img, meta, ed, x);
+    li.onclick = () => play(it);
+    li.ondragstart = ev => { dragItem = it; ev.dataTransfer.effectAllowed = 'move'; };
+    li.ondragover = ev => { if (dragItem) { ev.preventDefault(); li.classList.add('dragover'); } };
+    li.ondragleave = () => li.classList.remove('dragover');
+    li.ondrop = ev => {
+      ev.preventDefault(); li.classList.remove('dragover');
+      if (!dragItem || dragItem === it) return;
+      queue.splice(queue.indexOf(dragItem), 1); queue.splice(queue.indexOf(it), 0, dragItem);
+      dragItem = null; saveQueue(); renderQueue();
+    };
+    li.ondragend = () => { dragItem = null; };
+    ul.appendChild(li);
+  });
+}
+
+/* ---------- イベント ---------- */
+const addInput = $('#addInput');
+const doAdd = () => { const t = addInput.value; addInput.value = ''; handleAdd(t); };
+$('#bAdd').onclick = doAdd;
+addInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); doAdd(); } });
+$('#filter').oninput = renderQueue;
+$('#bClear').onclick = () => {
+  if (!queue.length || !confirm('キューを全削除しますか？')) return;
+  queue = []; current = null; clearPlayer(); saveQueue(); savePrefs(); renderQueue(); renderNow();
+};
+$('#bPlayAll').onclick = playAll;
+for (const [id, k] of [['#oCont', 'cont'], ['#oShuffle', 'shuffle'], ['#oRepeat', 'repeat']]) {
+  $(id).checked = !!prefs[k];
+  $(id).onchange = e => { prefs[k] = e.target.checked; savePrefs(); };
+}
+
+/* 簡易プレイリスト（ブラウザのlocalStorageに保存） */
+function renderLists() {
+  const sel = $('#listSel'); sel.textContent = '';
+  const names = Object.keys(lists);
+  if (!names.length) { const o = document.createElement('option'); o.textContent = '（保存済みなし）'; o.value = ''; sel.appendChild(o); return; }
+  names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = `${n}（${lists[n].length}曲）`; sel.appendChild(o); });
+}
+$('#bSaveList').onclick = () => {
+  if (!queue.length) return toast('キューが空です');
+  const name = (prompt('プレイリスト名（同名は上書き）') || '').trim(); if (!name) return;
+  lists[name] = queue.map(x => ({ ...x })); store(KEY.lists, lists); renderLists();
+  $('#listSel').value = name; toast(`「${name}」を保存しました`);
+};
+$('#bLoadList').onclick = () => {
+  const n = $('#listSel').value; if (!n || !lists[n]) return;
+  queue = lists[n].map(norm).filter(Boolean); current = queue[0] || null; clearPlayer();
+  saveQueue(); savePrefs(); renderQueue(); renderNow(); toast(`「${n}」を読み込みました（${queue.length}曲）`);
+};
+$('#bDelList').onclick = () => {
+  const n = $('#listSel').value; if (!n || !confirm(`「${n}」を削除しますか？`)) return;
+  delete lists[n]; store(KEY.lists, lists); renderLists();
+};
+
+/* ---------- 起動 ---------- */
+let sandboxed = false; try { sandboxed = window.origin === 'null'; } catch {}
+if (!/^https?:$/.test(location.protocol) || sandboxed) {
+  const s = $('#status'); s.className = 'show';
+  s.innerHTML = 'このページは <code>' + (location.protocol || '不明') + '</code> で開かれています。YouTubeの仕様（HTTP Referer必須）で再生できません（エラー153）。<code>http://localhost</code> かHTTPS（GitHub Pages等）で開いてください。';
+}
+renderLists(); renderQueue(); renderNow();
+})();
+</script>
+</body>
+</html>
